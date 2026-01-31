@@ -8,7 +8,7 @@ import win32ui, win32gui, win32con
 
 # ---- Config ----
 DATA_FILE = "launcher_entries.json"
-VERSION = "v0.1.1 / Build 47"
+VERSION = "v0.2.0 Pre-Release / Build 73"
 CHANGELOG = "• Massive bug fixes\n"
 
 SIDEBAR_WIDTH = 600
@@ -180,54 +180,104 @@ def remove_entry(index):
             save_entries()
             refresh_entries()
 
-# ---- Refresh sidebar ----
+# ---- Refresh entries --ghdjksl;djhsk
 def refresh_entries():
     for widget in scrollable_frame.winfo_children():
         widget.destroy()
     icon_refs.clear()
 
     for idx, entry in enumerate(entries):
-        col = idx % 2
-        row = idx // 2
+        row = idx  # one entry per row
+        frame = tk.Frame(scrollable_frame, bg="#222222", width=SIDEBAR_WIDTH-20, height=ENTRY_HEIGHT, bd=2, relief="ridge")
+        frame.grid(row=row, column=0, padx=ENTRY_PADDING, pady=ENTRY_PADDING)
+        frame.pack_propagate(False)  # keep frame size fixed
 
-        # Icon
+        exe_path = entry["exe"]
+
+        # --- Icon Box ---
+        icon_size = 64
+        icon_frame = tk.Frame(frame, width=icon_size, height=icon_size, bg="#222222", bd=1, relief="flat")
+        icon_frame.place(x=10, y=10)
         try:
             if entry["icon"] and os.path.exists(entry["icon"]):
-                img = Image.open(entry["icon"]).resize((64, 64))
+                img = Image.open(entry["icon"]).resize((icon_size, icon_size))
             else:
-                img = Image.new("RGB", (64, 64), color="#555555")
+                img = Image.new("RGB", (icon_size, icon_size), color="#888888")
             photo = ImageTk.PhotoImage(img)
         except:
-            photo = ImageTk.PhotoImage(Image.new("RGB", (64, 64), color="#555555"))
-
+            photo = ImageTk.PhotoImage(Image.new("RGB", (icon_size, icon_size), color="#888888"))
         icon_refs.append(photo)
+        icon_label = tk.Label(icon_frame, image=photo, bg="#222222")
+        icon_label.pack(expand=True, fill="both")
 
-        frame = tk.Frame(scrollable_frame, bg="#444444", width=ENTRY_WIDTH, height=ENTRY_HEIGHT)
-        frame.grid(row=row, column=col, padx=ENTRY_PADDING, pady=ENTRY_PADDING)
-        frame.pack_propagate(False)
+        # --- Name Box ---
+        name_frame = tk.Frame(frame, width=300, height=30, bg="#222222", bd=1, relief="flat")
+        name_frame.place(x=80, y=10)
+        name_label = tk.Label(name_frame, text=entry["name"], fg="white", bg="#222222",
+                              font=("Helvetica", 12, "bold"), anchor="w")
+        name_label.pack(expand=True, fill="both")
 
-        icon_label = tk.Label(frame, image=photo, bg="#444444")
-        icon_label.pack(side="top", pady=5)
+        # --- Metadata ---
+        import datetime
+        metadata = {}
+        try:
+            metadata["Created"] = datetime.datetime.fromtimestamp(os.path.getctime(exe_path)).strftime("%Y-%m-%d")
+        except:
+            metadata["Created"] = "N/A"
+        try:
+            metadata["Modified"] = datetime.datetime.fromtimestamp(os.path.getmtime(exe_path)).strftime("%Y-%m-%d")
+        except:
+            metadata["Modified"] = "N/A"
 
-        # Name label (full size)
-        name_label = tk.Label(frame, text=entry["name"], fg="white", bg="#555555",
-                              font=("Helvetica", 12, "bold"), padx=5, pady=5)
-        name_label.pack(side="top", fill="x")
+        metadata["Publisher"] = entry.get("publisher", "N/A")
+        metadata["Developer"] = entry.get("author", "N/A")
 
-        # Tooltip for full name on hover
-        ToolTip(name_label, entry["name"])
+        # Box dimensions and spacing
+        box_width = 140
+        box_height = 25
+        gap_x = 10
+        gap_y = 6
+        x_start = 80
+        y_start = 50
+        parent_bg = frame["bg"]
 
-        # Buttons
-        btn_frame = tk.Frame(frame, bg="#444444")
-        btn_frame.pack(side="bottom", pady=5)
+        # Top-left: Created
+        box_created = tk.Frame(frame, width=box_width, height=box_height, bg=parent_bg, bd=1, relief="flat")
+        box_created.place(x=x_start, y=y_start)
+        tk.Label(box_created, text=f"Created: {metadata['Created']}", fg="white", bg=parent_bg,
+                 font=("Helvetica", 9), anchor="w").pack(expand=True, fill="both")
 
-        play_btn = tk.Button(btn_frame, text="▶ Start", bg="#4CAF50", fg="white", width=10,
-                             command=lambda path=entry["exe"]: launch_entry(path))
-        play_btn.pack(side="left", padx=5)
+        # Bottom-left (slightly up): Modified
+        box_modified = tk.Frame(frame, width=box_width, height=box_height, bg=parent_bg, bd=1, relief="flat")
+        box_modified.place(x=x_start, y=y_start+box_height+gap_y-5)
+        tk.Label(box_modified, text=f"Modified: {metadata['Modified']}", fg="white", bg=parent_bg,
+                 font=("Helvetica", 9), anchor="w").pack(expand=True, fill="both")
 
-        del_btn = tk.Button(btn_frame, text="🗑 Delete", bg="#F44336", fg="white", width=10,
+        # Top-right: Publisher
+        box_pub = tk.Frame(frame, width=box_width, height=box_height, bg=parent_bg, bd=1, relief="flat")
+        box_pub.place(x=x_start+box_width+gap_x, y=y_start)
+        tk.Label(box_pub, text=f"Publisher: {metadata['Publisher']}", fg="white", bg=parent_bg,
+                 font=("Helvetica", 9), anchor="w").pack(expand=True, fill="both")
+
+        # Bottom-right (slightly up): Developer
+        box_dev = tk.Frame(frame, width=box_width, height=box_height, bg=parent_bg, bd=1, relief="flat")
+        box_dev.place(x=x_start+box_width+gap_x, y=y_start+box_height+gap_y-5)
+        tk.Label(box_dev, text=f"Developer: {metadata['Developer']}", fg="white", bg=parent_bg,
+                 font=("Helvetica", 9), anchor="w").pack(expand=True, fill="both")
+
+        # --- Buttons Frame inside the main frame ---
+        btn_frame = tk.Frame(frame, bg=parent_bg)
+        btn_frame.place(x=SIDEBAR_WIDTH - 220, y=20)
+
+        # Play button
+        play_btn = tk.Button(btn_frame, text="▶ Start", bg="#4CAF50", fg="white", font=("Arial", 12, "bold"),
+                             width=15, height=2, command=lambda path=exe_path: launch_entry(path))
+        play_btn.pack(side="top", pady=2)
+
+        # Delete button
+        del_btn = tk.Button(btn_frame, text="🗑 Delete", bg="#F44336", fg="white", width=15,
                             command=lambda idx=idx: remove_entry(idx))
-        del_btn.pack(side="right", padx=5)
+        del_btn.pack(side="top", pady=2)
 
 # ---- Add Entry Button ----
 add_btn = tk.Button(root, text="+ Add Entry", bg="#2196F3", fg="white",
